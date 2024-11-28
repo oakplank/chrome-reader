@@ -80,204 +80,331 @@ function handleHTML(selectedWord) {
   initiateReader(words, startIndex);
 }
 
+// Function to inject CSS for styles and transitions
+function injectStyles() {
+  const style = document.createElement('style');
+  style.textContent = `
+    /* Highlight Styles */
+    .speed-reader-highlight {
+      position: absolute;
+      background-color: rgba(255, 255, 0, 0.5); /* Semi-transparent yellow */
+      pointer-events: none;
+      z-index: 10000; /* Above all elements */
+      border-radius: 2px;
+      transition: left 0.3s ease, top 0.3s ease, width 0.3s ease, height 0.3s ease, opacity 0.3s ease;
+      opacity: 0; /* Start hidden */
+    }
+
+    /* Display Box Styles */
+    .speed-reader-box {
+      background-color: white;
+      z-index: 10001; /* Above the highlight */
+      box-shadow: 0px 0px 10px rgba(0,0,0,0.3);
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      resize: both;
+      overflow: hidden;
+      width: 450px; /* Increased default width */
+      height: 200px; /* Standard height */
+      position: fixed; /* Fixed relative to viewport */
+      top: 10px; /* Fixed top position */
+      left: 10px; /* Fixed left position */
+      transition: background-color 0.3s ease;
+      min-width: 300px; /* Minimum width */
+      min-height: 150px; /* Minimum height */
+    }
+
+    .speed-reader-box.dark-mode {
+      background-color: #333;
+    }
+
+    /* Header Styles */
+    .speed-reader-header {
+      width: 100%;
+      height: 40px;
+      background-color: #f0f0f0;
+      border-bottom: 1px solid #ccc;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 10px;
+      box-sizing: border-box;
+      user-select: none;
+      cursor: move;
+      border-top-left-radius: 10px; /* Rounded corners */
+      border-top-right-radius: 10px; /* Rounded corners */
+      transition: background-color 0.3s ease, border-bottom 0.3s ease;
+    }
+
+    .speed-reader-header.dark-mode {
+      background-color: #444;
+      border-bottom: 1px solid #555;
+    }
+
+    /* Title Styles */
+    .speed-reader-header .title {
+      font-weight: bold;
+      font-size: 18px;
+      color: #555;
+    }
+
+    .speed-reader-header.dark-mode .title {
+      color: #fff;
+    }
+
+    /* Control Buttons in Header */
+    .speed-reader-header .header-controls {
+      display: flex;
+      align-items: center;
+    }
+
+    .speed-reader-header .header-controls button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 18px;
+      margin-left: 10px;
+      color: #555;
+      transition: color 0.2s ease;
+    }
+
+    .speed-reader-header .header-controls button:hover {
+      /* Removed blue hover color */
+      color: #555;
+    }
+
+    .speed-reader-header.dark-mode .header-controls button {
+      color: #fff;
+    }
+
+    /* Word Display Styles */
+    .speed-reader-word-display {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      padding: 10px;
+      box-sizing: border-box;
+      overflow: hidden;
+      font-size: 24px; /* Base font size */
+      background-color: #fff;
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    .speed-reader-box.dark-mode .speed-reader-word-display {
+      background-color: #555;
+      color: #fff;
+    }
+
+    .speed-reader-prev-word,
+    .speed-reader-next-word {
+      margin: 0 10px; /* Minimal horizontal margin */
+      color: #aaa; /* Lighter color for context */
+      transition: color 0.3s ease;
+      flex: 1;
+      text-align: center;
+    }
+
+    .speed-reader-box.dark-mode .speed-reader-prev-word,
+    .speed-reader-box.dark-mode .speed-reader-next-word {
+      color: #777; /* Darker color for context */
+    }
+
+    .speed-reader-current-word {
+      font-weight: bold;
+      color: #000; /* Prominent color */
+      text-align: center;
+      flex: 0 0 auto;
+      transition: color 0.3s ease;
+    }
+
+    .speed-reader-box.dark-mode .speed-reader-current-word {
+      color: #fff; /* Light color for current word */
+    }
+
+    /* Controls Styles */
+    .speed-reader-controls {
+      width: 100%;
+      height: 50px;
+      background-color: #f9f9f9;
+      border-top: 1px solid #ccc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 5px 10px;
+      box-sizing: border-box;
+      transition: background-color 0.3s ease, border-top 0.3s ease;
+    }
+
+    .speed-reader-controls.dark-mode {
+      background-color: #555;
+      border-top: 1px solid #666;
+    }
+
+    .speed-reader-controls button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 20px;
+      margin: 0 10px;
+      color: #555;
+      transition: color 0.2s ease;
+    }
+
+    .speed-reader-controls button:hover {
+      /* Removed blue hover color */
+      color: #555;
+    }
+
+    .speed-reader-controls.dark-mode button {
+      color: #fff;
+    }
+
+    .speed-reader-controls input[type=range] {
+      width: 150px;
+      cursor: pointer;
+    }
+
+    .speed-reader-controls label {
+      margin-right: 10px;
+      color: #555;
+      font-size: 14px;
+      transition: color 0.3s ease;
+    }
+
+    .speed-reader-controls.dark-mode label {
+      color: #fff;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 // Function to create and position the reading box
 function createDisplayBox() {
   const displayBox = document.createElement("div");
   displayBox.classList.add("speed-reader-box");
-  displayBox.style.position = "fixed";
+  // Position is fixed by CSS
 
-  // Load position and size from localStorage
-  let savedPosition = localStorage.getItem("speedReaderPosition");
-  let savedSize = localStorage.getItem("speedReaderSize");
-
-  if (savedPosition) {
-    let position = JSON.parse(savedPosition);
-    displayBox.style.top = position.top + "px";
-    displayBox.style.left = position.left + "px";
-  } else {
-    displayBox.style.top = "10px";
-    displayBox.style.left = "10px";
-  }
-
-  if (savedSize) {
-    let size = JSON.parse(savedSize);
-    displayBox.style.width = size.width + "px";
-    displayBox.style.height = size.height + "px";
-  } else {
-    displayBox.style.width = "400px"; // Default width
-    displayBox.style.height = "200px"; // Default height
-  }
-
-  displayBox.style.backgroundColor = "white";
-  displayBox.style.border = "1px solid #ccc";
-  displayBox.style.zIndex = "9999";
-  displayBox.style.display = "flex";
-  displayBox.style.flexDirection = "column";
-  displayBox.style.resize = "both";
-  displayBox.style.overflow = "hidden";
-  displayBox.style.boxShadow = "0px 0px 10px rgba(0,0,0,0.1)";
-  displayBox.style.boxSizing = "border-box";
-  displayBox.style.borderRadius = "10px"; // Rounded corners
-  displayBox.style.minWidth = "300px"; // Minimum width
-  displayBox.style.minHeight = "150px"; // Minimum height
-  document.body.appendChild(displayBox);
+  // Always set to default position and size
+  displayBox.style.top = "10px";
+  displayBox.style.left = "10px";
+  displayBox.style.width = "450px"; // Increased default width
+  displayBox.style.height = "200px"; // Standard height
 
   // Create header for moving
   const header = document.createElement("div");
   header.classList.add("speed-reader-header");
-  header.style.width = "100%";
-  header.style.height = "30px";
-  header.style.backgroundColor = "#f0f0f0";
-  header.style.borderBottom = "1px solid #ccc";
-  header.style.display = "flex";
-  header.style.alignItems = "center";
-  header.style.cursor = "move";
-  header.style.paddingLeft = "10px";
-  header.style.boxSizing = "border-box";
-  header.style.userSelect = "none";
-  header.style.borderTopLeftRadius = "10px"; // Rounded corners
-  header.style.borderTopRightRadius = "10px"; // Rounded corners
-  displayBox.appendChild(header);
 
   // Add title to header
   const title = document.createElement("span");
+  title.classList.add("title");
   title.textContent = "Speed Reader";
-  title.style.flexGrow = "1";
-  title.style.fontWeight = "bold";
   header.appendChild(title);
+
+  // Header Controls (Dark Mode Toggle and Close Button)
+  const headerControls = document.createElement("div");
+  headerControls.classList.add("header-controls");
 
   // Add dark mode toggle
   const darkModeToggle = document.createElement("button");
   darkModeToggle.id = "darkModeToggle";
   darkModeToggle.textContent = "☾"; // Moon symbol for dark mode
-  darkModeToggle.style.cursor = "pointer";
-  darkModeToggle.style.border = "none";
-  darkModeToggle.style.backgroundColor = "transparent";
-  darkModeToggle.style.fontSize = "16px";
-  darkModeToggle.style.padding = "0";
-  darkModeToggle.style.margin = "0 5px";
   darkModeToggle.title = "Toggle Dark Mode";
-  header.appendChild(darkModeToggle);
+  darkModeToggle.setAttribute('aria-label', 'Toggle Dark Mode'); // Accessibility
+  headerControls.appendChild(darkModeToggle);
 
   // Add close button to header
   const closeButton = document.createElement("button");
+  closeButton.classList.add("close-button");
   closeButton.textContent = "✕";
-  closeButton.style.cursor = "pointer";
-  closeButton.style.border = "none";
-  closeButton.style.backgroundColor = "transparent";
-  closeButton.style.fontSize = "16px";
-  closeButton.style.padding = "0";
-  closeButton.style.margin = "0 5px";
   closeButton.title = "Close Speed Reader";
-  header.appendChild(closeButton);
+  closeButton.setAttribute('aria-label', 'Close Speed Reader'); // Accessibility
+  headerControls.appendChild(closeButton);
 
-  closeButton.addEventListener('click', () => {
-    cleanup();
-  });
+  header.appendChild(headerControls);
+  displayBox.appendChild(header);
 
-  // Make the display box draggable
+  // Make the display box draggable within the viewport
   let isDragging = false;
   let dragOffsetX = 0;
   let dragOffsetY = 0;
 
   header.addEventListener('mousedown', (e) => {
     isDragging = true;
-    dragOffsetX = e.clientX - displayBox.offsetLeft;
-    dragOffsetY = e.clientY - displayBox.offsetTop;
+    const rect = displayBox.getBoundingClientRect();
+    dragOffsetX = e.clientX - rect.left;
+    dragOffsetY = e.clientY - rect.top;
     e.preventDefault();
   });
 
   document.addEventListener('mousemove', (e) => {
     if (isDragging) {
-      displayBox.style.left = e.clientX - dragOffsetX + 'px';
-      displayBox.style.top = e.clientY - dragOffsetY + 'px';
+      let newLeft = e.clientX - dragOffsetX;
+      let newTop = e.clientY - dragOffsetY;
+
+      // Ensure the box stays within the viewport
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const boxRect = displayBox.getBoundingClientRect();
+
+      // Prevent the box from moving out of the viewport
+      newLeft = Math.max(0, Math.min(newLeft, viewportWidth - boxRect.width));
+      newTop = Math.max(0, Math.min(newTop, viewportHeight - boxRect.height));
+
+      displayBox.style.left = `${newLeft}px`;
+      displayBox.style.top = `${newTop}px`;
     }
   });
 
   document.addEventListener('mouseup', () => {
     if (isDragging) {
       isDragging = false;
-      // Save position
-      let position = {
-        top: parseInt(displayBox.style.top),
-        left: parseInt(displayBox.style.left)
-      };
-      localStorage.setItem('speedReaderPosition', JSON.stringify(position));
+      // No longer saving position to localStorage
     }
   });
 
-  // Save size on resize using ResizeObserver
-  const resizeObserver = new ResizeObserver(entries => {
-    for (let entry of entries) {
-      const width = entry.contentRect.width;
-      const height = entry.contentRect.height;
-      // Adjust font size based on the size of the box
-      let newFontSize = Math.min(width, height - 100) / 5; // Adjusted for header and controls
-      const wordDisplay = displayBox.querySelector(".speed-reader-word-display");
-      if (wordDisplay) {
-        wordDisplay.style.fontSize = newFontSize + 'px';
-      }
+  // Append the display box to the body
+  document.body.appendChild(displayBox);
 
-      // Save size
-      let size = {
-        width: width,
-        height: height
-      };
-      localStorage.setItem('speedReaderSize', JSON.stringify(size));
-    }
-  });
-  resizeObserver.observe(displayBox);
-
-  return displayBox;
+  return { displayBox, closeButton, darkModeToggle };
 }
 
 // Function to create word display area
 function createWordDisplay(displayBox) {
   const wordDisplay = document.createElement("div");
   wordDisplay.classList.add("speed-reader-word-display");
-  wordDisplay.style.flexGrow = "1";
-  wordDisplay.style.display = "flex";
-  wordDisplay.style.alignItems = "center";
-  wordDisplay.style.justifyContent = "center";
-  wordDisplay.style.fontSize = "24px";
-  wordDisplay.style.userSelect = "none";
-  wordDisplay.style.padding = "10px";
-  wordDisplay.style.boxSizing = "border-box";
-  wordDisplay.style.overflow = "auto";
-  wordDisplay.style.backgroundColor = "#fff"; // Ensure background
   displayBox.appendChild(wordDisplay);
-  return wordDisplay;
+
+  // Create previous, current, and next word spans
+  const prevWord = document.createElement("span");
+  prevWord.classList.add("speed-reader-prev-word");
+  wordDisplay.appendChild(prevWord);
+
+  const currentWord = document.createElement("span");
+  currentWord.classList.add("speed-reader-current-word");
+  wordDisplay.appendChild(currentWord);
+
+  const nextWord = document.createElement("span");
+  nextWord.classList.add("speed-reader-next-word");
+  wordDisplay.appendChild(nextWord);
+
+  return { prevWord, currentWord, nextWord };
 }
 
 // Function to create controls container
 function createControls(displayBox) {
   const controlsContainer = document.createElement("div");
-  controlsContainer.style.width = "100%";
-  controlsContainer.style.height = "50px";
-  controlsContainer.style.display = "flex";
-  controlsContainer.style.alignItems = "center";
-  controlsContainer.style.justifyContent = "center";
-  controlsContainer.style.borderTop = "1px solid #ccc";
-  controlsContainer.style.padding = "5px";
-  controlsContainer.style.boxSizing = "border-box";
+  controlsContainer.classList.add("speed-reader-controls");
   displayBox.appendChild(controlsContainer);
-  return controlsContainer;
-}
 
-// Function to create speed slider and WPM display
-function createSpeedControls(controlsContainer) {
   // Create rewind button with previous icon
   const rewindButton = document.createElement("button");
   rewindButton.id = "rewindButton";
-  rewindButton.innerHTML = "<<"; // Rewind icon (previous)
+  rewindButton.innerHTML = "⏪"; // Rewind icon
   rewindButton.title = "Rewind";
-  rewindButton.style.margin = "0 5px";
-  rewindButton.style.fontSize = "20px";
-  rewindButton.style.cursor = "pointer";
-  rewindButton.style.backgroundColor = "transparent";
-  rewindButton.style.border = "none";
-  rewindButton.style.padding = "0";
-  rewindButton.style.outline = "none";
+  rewindButton.setAttribute('aria-label', 'Rewind');
   controlsContainer.appendChild(rewindButton);
 
   // Create pause/resume button with icon
@@ -285,27 +412,15 @@ function createSpeedControls(controlsContainer) {
   pauseButton.id = "pauseButton";
   pauseButton.innerHTML = "❚❚"; // Pause icon
   pauseButton.title = "Pause";
-  pauseButton.style.margin = "0 5px";
-  pauseButton.style.fontSize = "20px";
-  pauseButton.style.cursor = "pointer";
-  pauseButton.style.backgroundColor = "transparent";
-  pauseButton.style.border = "none";
-  pauseButton.style.padding = "0";
-  pauseButton.style.outline = "none";
+  pauseButton.setAttribute('aria-label', 'Pause Reading');
   controlsContainer.appendChild(pauseButton);
 
   // Create restart button with icon
   const restartButton = document.createElement("button");
   restartButton.id = "restartButton";
-  restartButton.innerHTML = "↻"; // Restart icon
+  restartButton.innerHTML = "🔄"; // Restart icon
   restartButton.title = "Restart";
-  restartButton.style.margin = "0 5px";
-  restartButton.style.fontSize = "20px";
-  restartButton.style.cursor = "pointer";
-  restartButton.style.backgroundColor = "transparent";
-  restartButton.style.border = "none";
-  restartButton.style.padding = "0";
-  restartButton.style.outline = "none";
+  restartButton.setAttribute('aria-label', 'Restart Reading');
   controlsContainer.appendChild(restartButton);
 
   // Create speed slider container
@@ -336,22 +451,28 @@ function createSpeedControls(controlsContainer) {
   wpmDisplay.style.textAlign = "center";
   sliderContainer.appendChild(wpmDisplay);
 
-  return { speedSlider, wpmDisplay };
+  return { rewindButton, pauseButton, restartButton, speedSlider, wpmDisplay };
 }
 
 // Function to initiate the reader
 function initiateReader(words, startIndex) {
+  // Inject CSS for styles and transitions
+  injectStyles();
+
   // Create the display box
-  const displayBox = createDisplayBox();
+  const { displayBox, closeButton, darkModeToggle } = createDisplayBox();
 
   // Create word display area
-  const wordDisplay = createWordDisplay(displayBox);
+  const { prevWord, currentWord, nextWord } = createWordDisplay(displayBox);
 
   // Create controls container
-  const controlsContainer = createControls(displayBox);
-
-  // Create speed slider and WPM display
-  const { speedSlider, wpmDisplay } = createSpeedControls(controlsContainer);
+  const {
+    rewindButton,
+    pauseButton,
+    restartButton,
+    speedSlider,
+    wpmDisplay
+  } = createControls(displayBox);
 
   let currentIndex = startIndex;
   let isPaused = false;
@@ -370,15 +491,12 @@ function initiateReader(words, startIndex) {
   wpmDisplay.textContent = `${wpm} WPM`;
 
   // Pause/Resume functionality
-  const pauseButton = displayBox.querySelector("#pauseButton");
-  const restartButton = displayBox.querySelector("#restartButton");
-  const rewindButton = displayBox.querySelector("#rewindButton");
-
   function pauseReading() {
     if (!isPaused) {
       isPaused = true;
       pauseButton.innerHTML = "▶"; // Play icon
       pauseButton.title = "Resume";
+      pauseButton.setAttribute('aria-label', 'Resume Reading');
       clearTimeout(window.readingTimeout);
     }
   }
@@ -388,6 +506,7 @@ function initiateReader(words, startIndex) {
       isPaused = false;
       pauseButton.innerHTML = "❚❚"; // Pause icon
       pauseButton.title = "Pause";
+      pauseButton.setAttribute('aria-label', 'Pause Reading');
       readingLoop();
     }
   }
@@ -405,8 +524,10 @@ function initiateReader(words, startIndex) {
     pauseReading();
     currentIndex = initialStartIndex; // Reset to the first highlighted word
     if (currentIndex < words.length) {
-      wordDisplay.textContent = words[currentIndex].word;
+      updateWordDisplayUI(words, currentIndex);
       highlightWordOnPage(words[currentIndex]);
+      currentIndex++;
+      resumeReading();
     }
   });
 
@@ -416,9 +537,16 @@ function initiateReader(words, startIndex) {
     const rewindCount = 50; // Number of words to rewind
     currentIndex = Math.max(initialStartIndex, currentIndex - rewindCount); // Ensure not to go before the initial word
     if (currentIndex < words.length) {
-      wordDisplay.textContent = words[currentIndex].word;
+      updateWordDisplayUI(words, currentIndex);
       highlightWordOnPage(words[currentIndex]);
+      currentIndex++;
+      resumeReading();
     }
+  });
+
+  // Close functionality
+  closeButton.addEventListener('click', () => {
+    cleanup();
   });
 
   // Auto-pause when tab loses focus
@@ -428,7 +556,54 @@ function initiateReader(words, startIndex) {
     }
   });
 
-  // Start the reading loop
+  // Create a single highlight element
+  const highlightDiv = document.createElement('div');
+  highlightDiv.classList.add('speed-reader-highlight');
+  document.body.appendChild(highlightDiv);
+  window.currentHighlight = highlightDiv; // Store globally for access in other functions
+
+  // Function to update the word display UI
+  function updateWordDisplayUI(words, index) {
+    // Previous word
+    if (index > 0 && words[index - 1]) {
+      prevWord.textContent = words[index - 1].word;
+    } else {
+      prevWord.textContent = "";
+    }
+
+    // Current word
+    if (words[index]) {
+      currentWord.textContent = words[index].word;
+      highlightWordOnPage(words[index]);
+    } else {
+      currentWord.textContent = "";
+    }
+
+    // Next word
+    if (words[index + 1]) {
+      nextWord.textContent = words[index + 1].word;
+    } else {
+      nextWord.textContent = "";
+    }
+
+    // Dynamically adjust font size based on box size
+    adjustFontSize(displayBox);
+  }
+
+  // Function to adjust font size based on box size
+  function adjustFontSize(displayBox) {
+    const boxWidth = displayBox.clientWidth;
+    const boxHeight = displayBox.clientHeight;
+
+    // Calculate a suitable font size (e.g., 5% of box height)
+    const newFontSize = Math.max(16, boxHeight * 0.05); // Minimum font size of 16px
+    const wordDisplay = displayBox.querySelector(".speed-reader-word-display");
+    if (wordDisplay) {
+      wordDisplay.style.fontSize = `${newFontSize}px`;
+    }
+  }
+
+  // Reading loop
   function readingLoop() {
     if (isPaused) return;
 
@@ -437,30 +612,26 @@ function initiateReader(words, startIndex) {
       return;
     }
 
-    const currentWordObj = words[currentIndex];
-    wordDisplay.textContent = currentWordObj.word;
-
-    highlightWordOnPage(currentWordObj);
-
+    updateWordDisplayUI(words, currentIndex);
     currentIndex++;
 
     window.readingTimeout = setTimeout(readingLoop, readingSpeed);
   }
 
-  // Initial display
-  wordDisplay.textContent = words[currentIndex].word;
-  highlightWordOnPage(words[currentIndex]);
-  currentIndex++;
+  // Start the reading loop
+  if (currentIndex < words.length) {
+    updateWordDisplayUI(words, currentIndex);
+    currentIndex++;
+    readingLoop();
+  }
 
-  readingLoop();
+  // Setup Dark Mode Toggle after the box is created
+  setupDarkModeToggle();
 }
 
-// Function to highlight a word on the page
+// Function to highlight a word on the page with smooth transitions and auto-scrolling
 function highlightWordOnPage(wordObj) {
-  // Remove existing highlight
-  if (window.currentHighlight) {
-    window.currentHighlight.remove();
-  }
+  const highlightDiv = window.currentHighlight;
 
   if (wordObj.node && wordObj.startOffset !== undefined) {
     try {
@@ -472,36 +643,31 @@ function highlightWordOnPage(wordObj) {
       // Get the bounding rectangle of the word
       const rect = range.getBoundingClientRect();
 
-      // Create a highlight div
-      const highlightDiv = document.createElement('div');
-      highlightDiv.style.position = 'absolute';
-      highlightDiv.style.backgroundColor = 'rgba(255, 255, 0, 0.5)'; // Semi-transparent yellow
-      highlightDiv.style.pointerEvents = 'none';
-      highlightDiv.style.zIndex = '10000';
+      // Update the highlight div's position and size
       highlightDiv.style.left = `${rect.left + window.scrollX}px`;
       highlightDiv.style.top = `${rect.top + window.scrollY}px`;
       highlightDiv.style.width = `${rect.width}px`;
       highlightDiv.style.height = `${rect.height}px`;
-      highlightDiv.style.borderRadius = "2px";
+      highlightDiv.style.opacity = '1'; // Ensure it's visible
 
-      document.body.appendChild(highlightDiv);
-      window.currentHighlight = highlightDiv;
+      // Smooth transition handled by CSS
 
-      // Scroll to the word if it's not in the viewport
-      const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
-      const viewportTop = window.scrollY || window.pageYOffset;
-      const viewportBottom = viewportTop + viewportHeight;
+      // **Auto-Scroll to Keep Highlighted Word in Middle Range**
+      const middleRangeTop = window.innerHeight * 0.3; // 30% from top
+      const middleRangeBottom = window.innerHeight * 0.7; // 70% from top
 
-      const wordTop = rect.top + window.scrollY;
-      const wordBottom = rect.bottom + window.scrollY;
+      const wordCenterY = rect.top + rect.height / 2;
 
-      const margin = viewportHeight * 0.2; // 20% margin
-
-      if (wordTop < viewportTop + margin || wordBottom > viewportBottom - margin) {
-        const scrollTarget = wordTop - (viewportHeight / 2) + (rect.height / 2);
-
-        window.scrollTo({
-          top: scrollTarget,
+      if (wordCenterY < middleRangeTop) {
+        // If word is above the middle range, scroll up
+        window.scrollBy({
+          top: wordCenterY - middleRangeTop,
+          behavior: 'smooth'
+        });
+      } else if (wordCenterY > middleRangeBottom) {
+        // If word is below the middle range, scroll down
+        window.scrollBy({
+          top: wordCenterY - middleRangeBottom,
           behavior: 'smooth'
         });
       }
@@ -526,8 +692,43 @@ function cleanup() {
   document.removeEventListener('visibilitychange', handleVisibilityChange);
 }
 
+// Function to handle visibility change
 function handleVisibilityChange() {
   if (document.hidden) {
     pauseReading();
   }
 }
+
+// Function to handle Dark Mode Toggle
+function setupDarkModeToggle() {
+  const darkModeToggle = document.getElementById('darkModeToggle');
+  if (darkModeToggle) {
+    darkModeToggle.addEventListener('click', () => {
+      const displayBox = document.querySelector(".speed-reader-box");
+      const header = displayBox.querySelector(".speed-reader-header");
+      const controls = displayBox.querySelector(".speed-reader-controls");
+      const wordDisplay = displayBox.querySelector(".speed-reader-word-display");
+
+      // Toggle dark mode class
+      displayBox.classList.toggle("dark-mode");
+      header.classList.toggle("dark-mode");
+      controls.classList.toggle("dark-mode");
+      wordDisplay.classList.toggle("dark-mode");
+
+      // Toggle the dark mode icon
+      if (displayBox.classList.contains("dark-mode")) {
+        darkModeToggle.textContent = "☀"; // Sun symbol for light mode
+        darkModeToggle.title = "Toggle Light Mode";
+        darkModeToggle.setAttribute('aria-label', 'Toggle Light Mode');
+      } else {
+        darkModeToggle.textContent = "☾"; // Moon symbol for dark mode
+        darkModeToggle.title = "Toggle Dark Mode";
+        darkModeToggle.setAttribute('aria-label', 'Toggle Dark Mode');
+      }
+    });
+  }
+}
+
+// Initialize Styles
+injectStyles();
+ 
