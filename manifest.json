@@ -3,7 +3,7 @@
   "name": "Speed Reader Highlighter",
   "version": "1.5",
   "description": "Highlights words to aid in speed reading on any webpage.",
-  "permissions": ["scripting", "activeTab", "contextMenus"],
+  "permissions": ["activeTab", "contextMenus"],
   "action": {
     "default_title": "Start Speed Reading"
   },
@@ -28,7 +28,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["pdfjs/pdf.js", "pdfjs/pdf.worker.js"],
+      "resources":[],
       "matches": ["<all_urls>"]
     }
   ]
