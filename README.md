@@ -12,7 +12,21 @@ A Chrome browser extension designed to enhance your reading speed and comprehens
 
 ## Installation
 
-1. Visit the [Chrome Web Store](#) to install the extension.
+1. # Chrome Speed Reading Extension
+
+A Chrome browser extension designed to enhance your reading speed and comprehension. Easily highlight text on a webpage and activate the reader with **Ctrl + H**.
+
+## Features
+
+- **Pause/Play Functionality**: Control your reading flow with simple play and pause options.
+- **Variable Reading Speed**: Adjust the reading speed to suit your preference.
+- **Smooth Text Highlighting**: Enjoy seamless highlighting for an uninterrupted reading experience.
+- **Stationary Viewer Window**: Focus on the content with a fixed reading window.
+- **Adaptive Text Sizing**: Automatically adjusts text size for better readability.
+
+## Installation
+
+1. Visit the [Chrome Web Store](https://chromewebstore.google.com/detail/speed-reader-highlighter/dkoiaiceahekbbdikabhdmhaeicbfpjp) to install the extension.
 2. Follow the installation prompts to add it to your browser.
 3. Start using it by highlighting text on any webpage and pressing **Ctrl + H**.
 
