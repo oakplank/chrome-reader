@@ -1,0 +1,7 @@
+{
+  "name": "chrome-reader",
+  "version": "1.6.0",
+  "private": true,
+  "scripts": { "test": "node tests/reader.cjs && node tests/reading-experience.cjs", "check": "node --check reader.js && node --check background.js" },
+  "devDependencies": { "playwright": "1.62.1" }
+}
