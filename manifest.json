@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "Speed Reader Highlighter",
-  "version": "1.5",
+  "version": "1.6.0",
   "description": "Highlights words to aid in speed reading on any webpage.",
-  "permissions": ["activeTab", "contextMenus"],
+  "permissions": ["activeTab", "contextMenus", "storage"],
   "action": {
     "default_title": "Start Speed Reading"
   },
@@ -22,14 +22,8 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js"],
+      "js": ["reader.js"],
       "run_at": "document_idle"
-    }
-  ],
-  "web_accessible_resources": [
-    {
-      "resources":[],
-      "matches": ["<all_urls>"]
     }
   ]
 }
