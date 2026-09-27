@@ -1,9 +1,12 @@
 {
   "manifest_version": 3,
   "name": "Speed Reader Highlighter",
-  "version": "1.6.0",
+  "version": "1.7.0",
+  "minimum_chrome_version": "116",
   "description": "Highlights words to aid in speed reading on any webpage.",
-  "permissions": ["activeTab", "contextMenus", "storage"],
+  "permissions": ["activeTab", "contextMenus", "storage", "tts", "offscreen"],
+  "optional_host_permissions": ["https://texttospeech.googleapis.com/*"],
+  "options_ui": { "page": "options.html", "open_in_tab": true },
   "action": {
     "default_title": "Start Speed Reading"
   },

@@ -35,9 +35,9 @@
     const selection = getSelection();
     const range = selection?.rangeCount && !selection.isCollapsed ? selection.getRangeAt(0).cloneRange() : null;
     session?.close();
-    const saved = await chrome.storage.local.get('readerPreferences').catch(() => ({}));
+    const saved = await chrome.runtime.sendMessage({action:'reader-preferences'}).catch(() => ({}));
     if (id !== requestId) return;
-    const preferences = { wpm: Math.max(100, Math.min(800, Number(saved.readerPreferences?.wpm) || 300)), dark: saved.readerPreferences?.dark === true, wordView: saved.readerPreferences?.wordView === true };
+    const preferences = { wpm: Math.max(100, Math.min(800, Number(saved?.wpm) || 300)), dark: saved?.dark === true, wordView: saved?.wordView === true, speechRate:Math.max(.5,Math.min(2,Number(saved?.speechRate)||1)) };
     const words = range ? tokenize(readingRoot(range)) : [];
     let index = -1;
     if (range?.startContainer.isConnected) {
@@ -57,6 +57,7 @@
     const options = { signal: events.signal };
     const previousFocus = document.activeElement;
     let index = Math.max(first, 0), paused = first < 0, finished = false, closed = false, timer, drag;
+    let speechMode = false, utteranceId, chunkStart, chunkEnd, speechTimer, estimated = false, speechNotice = '';
     const host = document.createElement('div');
     host.dataset.speedReader = '';
     host.style.cssText = 'all:initial;position:fixed;inset:0;pointer-events:none;z-index:2147483647;';
@@ -100,6 +101,9 @@
       label { white-space:nowrap;min-width:76px;font-variant-numeric:tabular-nums; }
       input { flex:1;min-width:0;accent-color:#2454d6; }
       .status { padding:9px 16px;color:var(--muted);font-size:12px;min-height:35px; }
+      .speech { display:flex;gap:8px;align-items:center;padding:8px 14px;border-top:1px solid var(--line); }
+      .speech button { flex:1;font-size:13px; } .speech button[aria-pressed="true"] { background:var(--soft);border-color:#2454d6; }
+      .speech-note { padding:0 16px 8px;color:var(--muted);font-size:12px; } .speech-note:empty { display:none; }
       .message { padding:22px 18px;margin:0;font-size:15px; }
       .highlight { position:fixed;pointer-events:none;background:#ffe16888;border-bottom:2px solid #b98a00;border-radius:2px; }
       @media(max-width:360px) { .words { gap:4px;padding:20px 10px; } .current { font-size:26px; } }
@@ -138,15 +142,84 @@
     const slider = el('input', speed); slider.id = 'reader-speed'; slider.type = 'range';
     slider.min = '100'; slider.max = '800'; slider.step = '25'; slider.value = String(preferences.wpm);
     slider.setAttribute('aria-label', 'Reading speed in words per minute');
-    slider.addEventListener('input', () => { preferences.wpm = Number(slider.value); label.textContent = `${preferences.wpm} WPM`; schedule(); }, options);
+    slider.addEventListener('input', () => {
+      if(speechMode){preferences.speechRate=Number(slider.value)/100;stopUtterance();}
+      else preferences.wpm=Number(slider.value);
+      updateSpeed();schedule();
+    }, options);
     slider.addEventListener('change', save, options);
+    const speechControls = el('div',panel,'speech');
+    const speak = button(speechControls,'Read aloud','Read aloud',()=>{
+      speechMode=!speechMode;stopUtterance();speechNotice='';
+      if(finished){index=first;finished=false;}
+      if(speechMode)paused=false;
+      speak.textContent=speechMode?'Stop voice':'Read aloud';speak.setAttribute('aria-label',speak.textContent);speak.setAttribute('aria-pressed',String(speechMode));
+      updateSpeed();render();schedule();constrain();
+    });
+    speak.setAttribute('aria-pressed','false');
+    button(speechControls,'Voice settings','Voice settings',()=>{
+      chrome.runtime.sendMessage({action:'reader-voice-settings'}).catch(()=>{speechNote.textContent='Reload this page to open voice settings.';});
+    });
+    const speechNote=el('div',panel,'speech-note');speechNote.setAttribute('aria-live','polite');
     const status = el('div', panel, 'status');
 
     function save() {
-      chrome.storage.local.set({ readerPreferences: { ...preferences } }).catch(() => {
+      chrome.runtime.sendMessage({action:'reader-save-preferences',preferences:{...preferences}}).then(result=>{if(result?.error)throw Error(result.error);}).catch(() => {
         if (!closed) status.textContent = 'Settings could not be saved. Reload this page to retry.';
       });
     }
+    function updateSpeed(){
+      label.textContent=speechMode?`${preferences.speechRate.toFixed(1)}× voice`:`${preferences.wpm} WPM`;
+      slider.min=speechMode?'50':'100';slider.max=speechMode?'200':'800';slider.step=speechMode?'10':'25';
+      slider.value=String(speechMode?preferences.speechRate*100:preferences.wpm);
+      slider.setAttribute('aria-label',speechMode?'Speaking speed':'Reading speed in words per minute');
+    }
+    function speechControl(command){
+      const id=utteranceId;
+      if(id)chrome.runtime.sendMessage({action:'reader-speech-control',id,command}).then(result=>{
+        if(result?.restart&&utteranceId===id){utteranceId=null;if(!paused)schedule();}
+      }).catch(()=>{if(command==='resume'&&utteranceId===id)speechError('Speech could not resume. Try again.');});
+    }
+    function stopUtterance(){speechControl('stop');utteranceId=null;clearTimeout(speechTimer);estimated=false;}
+    function speechError(message){stopUtterance();paused=true;speechNotice=message;render();}
+    function estimateWord(){
+      clearTimeout(speechTimer);
+      if(!estimated||paused||!utteranceId)return;
+      speechTimer=setTimeout(()=>{if(index+1<chunkEnd){index++;render();estimateWord();}},60000/(180*preferences.speechRate));
+    }
+    function beginUtterance(){
+      if(utteranceId)return;
+      chunkStart=index;chunkEnd=index;
+      let bytes=15;
+      // Keep each request below the provider's 5 KB SSML limit, including marks.
+      while(chunkEnd<words.length && chunkEnd-index<60){
+        const word=words[chunkEnd].text;
+        const size=new TextEncoder().encode(word).length*6+30;
+        if(chunkEnd>index && bytes+size>4200)break;
+        bytes+=size;chunkEnd++;
+        if(chunkEnd-index>=12 && /[.!?…]$/.test(word))break;
+      }
+      const id=crypto.randomUUID();utteranceId=id;speechNotice='Preparing voice…';render();
+      chrome.runtime.sendMessage({action:'reader-speak',id,words:words.slice(chunkStart,chunkEnd).map(w=>w.text),rate:preferences.speechRate,lang:document.documentElement.lang||navigator.language}).then(result=>{
+        if(utteranceId===id&&result?.error)speechError(result.error);
+      }).catch(()=>{if(utteranceId===id)speechError('Speech could not start. Reload this page and try again.');});
+    }
+    function onSpeech(message){
+      if(message.action!=='reader-speech-event'||message.id!==utteranceId||closed)return;
+      if(message.type==='error'){speechError(message.error);return;}
+      if(message.type==='start'){
+        estimated=message.estimated===true;speechNotice=estimated?'This voice uses approximate word timing.':'Reading aloud';render();estimateWord();
+      }
+      if(message.type==='word'&&!paused&&Number.isInteger(message.index)&&message.index>=0&&chunkStart+message.index<chunkEnd){
+        estimated=false;clearTimeout(speechTimer);index=chunkStart+message.index;speechNotice='Reading aloud';render();
+      }
+      if(message.type==='end'){
+        utteranceId=null;clearTimeout(speechTimer);
+        if(chunkEnd<words.length){index=chunkEnd;render();schedule();}
+        else{index=words.length-1;finished=true;paused=true;speechNotice='';render();}
+      }
+    }
+    chrome.runtime.onMessage.addListener(onSpeech);
     function updatePlay() {
       const text = finished ? 'Read again' : paused ? 'Resume' : 'Pause';
       play.textContent = text; play.title = text;
@@ -156,7 +229,7 @@
       if (first < 0) return;
       const w = words[index];
       if (!w.node.isConnected || w.node.data.slice(w.start, w.end) !== w.text) {
-        highlight.hidden = true; paused = true; clearTimeout(timer); updatePlay();
+        highlight.hidden = true; paused = true; clearTimeout(timer); stopUtterance(); updatePlay();
         status.textContent = 'This page changed. Select text and start again.'; return;
       }
       const range = document.createRange(); range.setStart(w.node, w.start); range.setEnd(w.node, w.end);
@@ -186,10 +259,12 @@
       current.textContent = words[index]?.text || ''; next.textContent = words[index + 1]?.text || '';
       status.textContent = finished ? 'Finished. Read again whenever you like.' : `${index - first + 1} of ${words.length - first} words${paused ? ' · Paused' : ''}`;
       updatePlay(); positionHighlight(true);
+      speechNote.textContent=speechNotice;
     }
     function schedule() {
       clearTimeout(timer);
       if (paused || finished || closed || first < 0) return;
+      if(speechMode){beginUtterance();return;}
       timer = setTimeout(() => {
         if (index + 1 < words.length) index++; else { finished = true; paused = true; }
         render(); schedule();
@@ -198,11 +273,12 @@
     function toggle() {
       if (first < 0) return;
       if (finished) { index = first; finished = false; paused = false; } else paused = !paused;
+      if(speechMode){speechControl(paused?'pause':'resume');if(paused)clearTimeout(speechTimer);else estimateWord();}
       render(); schedule();
     }
-    function seek(target) { if (first >= 0) { index = target; finished = false; render(); schedule(); } }
+    function seek(target) { if (first >= 0) { stopUtterance(); index = target; finished = false; render(); schedule(); } }
     function close() {
-      closed = true; clearTimeout(timer); events.abort();
+      closed = true; clearTimeout(timer);stopUtterance();chrome.runtime.onMessage.removeListener(onSpeech); events.abort();
       const restore = document.activeElement === host; host.remove();
       if (restore && previousFocus?.isConnected) previousFocus.focus({ preventScroll:true });
       if (session?.host === host) session = null;
@@ -223,7 +299,8 @@
     }, options);
     header.addEventListener('pointerup', () => { drag = null; }, options);
     header.addEventListener('lostpointercapture', () => { drag = null; }, options);
-    document.addEventListener('visibilitychange', () => { if (document.hidden && first >= 0) { paused = true; render(); schedule(); } }, options);
+    document.addEventListener('visibilitychange', () => { if (document.hidden && first >= 0) { paused = true;speechControl('pause');clearTimeout(speechTimer); render(); schedule(); } }, options);
+    window.addEventListener('pagehide',close,options);
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape') { close(); return; }
       if (!e.composedPath().includes(panel) || /^(INPUT|BUTTON)$/.test(e.composedPath()[0].tagName)) return;
@@ -236,7 +313,7 @@
     if (first < 0) {
       display.style.display = 'none';
       const message = el('p', panel, 'message', 'Select a word or passage on this page, then press Alt+H to read from there.'); header.after(message);
-      [back, play, restart, wordView].forEach(control => { control.disabled = true; });
+      [back, play, restart, wordView, speak].forEach(control => { control.disabled = true; });
       status.textContent = 'Use ordinary webpage text. Browser pages and built-in PDF viewers are not supported.';
     } else { render(); schedule(); }
     panel.focus({ preventScroll:true });

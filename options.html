@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Speed Reader · Voice settings</title><link rel="stylesheet" href="options.css"><script src="options.js" defer></script></head>
+<body><main>
+  <p class="brand">Speed Reader</p><h1>A voice for your reading.</h1>
+  <p class="intro">Follow the highlight and listen along. Start with a free voice already on your computer.</p>
+  <form id="settings">
+    <label for="provider">Voice source</label>
+    <select id="provider"><option value="native">Installed voices · free, no key</option><option value="google">Google Cloud · use my key</option></select>
+    <section id="native-panel">
+      <label for="native-voice">Installed voice</label><select id="native-voice"><option value="">Choose automatically for the page language</option></select>
+      <p class="hint" id="native-hint">Installed voices keep reading on your computer. Voice quality and word timing depend on your system.</p>
+    </section>
+    <section id="google-panel" hidden>
+      <p>Only the passage being spoken is sent directly to Google Cloud. Your key is saved on this device in the extension, never in the webpage.</p>
+      <label for="google-voice">Cloud voice</label>
+      <select id="google-voice">
+        <option value="en-US-Wavenet-D">English (US) · WaveNet D</option><option value="en-US-Wavenet-F">English (US) · WaveNet F</option>
+        <option value="en-GB-Wavenet-A">English (UK) · WaveNet A</option><option value="en-GB-Wavenet-B">English (UK) · WaveNet B</option>
+        <option value="en-AU-Wavenet-A">English (Australia) · WaveNet A</option><option value="fr-FR-Wavenet-A">French · WaveNet A</option>
+        <option value="de-DE-Wavenet-A">German · WaveNet A</option><option value="es-ES-Standard-A">Spanish · Standard A</option>
+      </select>
+      <label for="api-key">Google Cloud API key</label><input id="api-key" type="password" autocomplete="off" spellcheck="false" maxlength="200" placeholder="Paste your key">
+      <p class="hint" id="key-state">No key saved.</p>
+      <p class="hint">Use a project with Cloud Text-to-Speech and billing enabled. Restrict the key to the Cloud Text-to-Speech API. This is a Google Cloud key, not a Gemini key.</p>
+      <p class="hint">Standard and WaveNet currently include 4 million characters per month, then $4 per million. Your other usage counts toward that allowance. Set a quota in your Google Cloud project to limit spending.</p>
+      <p class="links"><a href="https://console.cloud.google.com/apis/library/texttospeech.googleapis.com" target="_blank" rel="noreferrer">Set up Google Cloud</a><a href="https://cloud.google.com/text-to-speech/pricing" target="_blank" rel="noreferrer">Current pricing</a></p>
+    </section>
+    <div class="buttons"><button type="submit" id="save">Save voice settings</button><button type="button" id="remove-key" hidden>Remove saved key</button></div>
+    <p id="result" role="status" aria-live="polite"></p>
+  </form>
+  <p class="footer">Return to the article and choose <strong>Read aloud</strong>. Pause, restart and speed controls also work with speech. Opening another tab pauses reading.</p>
+</main></body></html>

@@ -1,4 +1,5 @@
 'use strict';
+importScripts('speech-background.js');
 
 async function startInTab(tabId, frameId = 0) {
   if (!Number.isInteger(tabId)) return;
