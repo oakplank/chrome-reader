@@ -12,6 +12,8 @@ Choose **Read aloud** to listen along, using free installed voices or your own G
 
 Use `chrome://extensions/shortcuts` to change the shortcut. Disable the store version while trying this unpacked copy to avoid duplicate readers.
 
+After pulling an update, click **Reload** on this unpacked extension in `chrome://extensions`, then refresh the article. The reader header shows the version (currently **1.7.1**) so you can distinguish it from an older installed copy.
+
 ## Reading controls
 
 - **Pause / Resume:** stop and continue at your current position.
@@ -54,6 +56,8 @@ If the current text changes while reading, the reader pauses and asks for a fres
 
 Article detection uses the page's HTML structure. Poorly marked-up pages may include unrelated text; unusually tall sticky headers or overlays can still obscure the article. This is not a full article-extraction service.
 
+Visibility checks exclude clipped accessibility labels, transparent text, collapsed content and text positioned outside the scrollable document. Ordinary article text below the fold stays in the reading flow. Wikipedia sidebars, navigation boxes, maintenance notices and image captions are skipped. Selecting a page title outside its article starts at the article text instead of the intervening toolbar.
+
 ## Privacy and permissions
 
 Visual reading and installed voices run locally. The extension filters out remote system voices. No article text or reading history is saved. If you explicitly configure Google Cloud and start speech, the current passage is sent directly to `texttospeech.googleapis.com` using your key; generated audio is held temporarily for playback. Preferences and your optional key are stored on this device, not synced.
@@ -80,6 +84,12 @@ npm test
 The tests load the actual unpacked extension in isolated Chromium profiles. They check repeated-word and multi-node selection, first-word timing, Unicode words, hidden text, pause/restart, saved preferences, narrow layout, replay, cleanup, page changes and unsupported-page feedback. Reading-experience checks verify word alignment, pacing, long-paragraph and nested scrolling, control overlap, optional word view and article boundaries. Screenshots and JSON summaries go to the ignored `test-results/` directory.
 
 Speech tests exercise controls and timing with deterministic native events, mock Google responses through the real audio player, verify restrictive-page playback and key isolation, and cover cancellation, errors and key removal. They do not require a real key or incur API charges. A native-engine smoke check runs when the test browser exposes installed voices; the summary records when unavailable. Live Google synthesis and subjective voice quality require a separate check with your own key.
+
+`npm run test:live` checks the live Wikipedia **Speed reading** page in an isolated Chromium profile: selecting the page title must read the first two article paragraphs in order with visible highlights. It requires network access. Visibility regression tests run offline in `npm test` and verify both visual reading and speech input.
+
+## Version 1.7.1
+
+Fixed hidden-text filtering using word ranges, ancestor opacity and clipping checks; excluded Wikipedia sidebars and navigation boxes; corrected title-to-article selection. Added visibility and live Wikipedia regression checks and a version label in the reader header. Not published to the Chrome Web Store.
 
 ## Version 1.7.0
 

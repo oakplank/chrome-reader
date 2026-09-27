@@ -6,28 +6,91 @@
   function readingRoot(range) {
     const start = range.startContainer;
     const element = start.nodeType === Node.ELEMENT_NODE ? start : start.parentElement;
-    return element?.closest('article,[role="article"],[itemprop="articleBody"],.mw-parser-output')
-      || element?.closest('main,[role="main"]') || document.body;
+    const articleSelector = 'article,[role="article"],[itemprop="articleBody"],.mw-parser-output';
+    const article = element?.closest(articleSelector);
+    const main = element?.closest('main,[role="main"]');
+    // Page titles often sit outside the article beside language/tool menus.
+    return article || (element?.closest('h1') && main?.querySelector(articleSelector)) || main || document.body;
+  }
+
+  const excludedText = 'script,style,noscript,template,textarea,input,select,button,[hidden],[inert],[aria-hidden="true"],[contenteditable]:not([contenteditable="false"]),[data-speed-reader],nav,aside,footer,[role="navigation"],[role="complementary"],[role="contentinfo"],.mw-editsection,.reference,.reflist,.mw-parser-output .sidebar,.mw-parser-output .navbox,.mw-parser-output .metadata,.mw-parser-output .hatnote,.mw-parser-output .sistersitebox,.mw-parser-output figure,.mw-parser-output .thumb';
+
+  // A layout box alone does not mean its text is painted. Check the word's
+  // range and every clipping ancestor, without excluding scrollable prose.
+  function readableRange(range, styleOf = getComputedStyle) {
+    const p = range.startContainer.parentElement;
+    if (!p || p.closest(excludedText)) return false;
+    const own = styleOf(p);
+    const transparent = color => color === 'transparent' || /^rgba\([^)]*,\s*0(?:\.0+)?\s*\)$/.test(color) || /\/\s*0(?:\.0+)?%?\s*\)$/.test(color);
+    if (own.visibility !== 'visible' || parseFloat(own.fontSize) === 0 || transparent(own.webkitTextFillColor || own.color)) return false;
+    let rects = [...range.getClientRects()].filter(r => r.width > 1 && r.height > 1)
+      .map(r => ({left:r.left,right:r.right,top:r.top,bottom:r.bottom}));
+    if (!rects.length) return false;
+    for (let a = p; a; a = a.parentElement) {
+      const style = styleOf(a);
+      if (style.display === 'none' || Number(style.opacity) === 0 || style.contentVisibility === 'hidden') return false;
+      if (a.matches('details:not([open])') && !a.querySelector(':scope > summary')?.contains(p)) return false;
+      const box = a.getBoundingClientRect();
+      let left = -Infinity, right = Infinity, top = -Infinity, bottom = Infinity;
+      if (style.display !== 'contents') {
+        if (/^(hidden|clip)$/.test(style.overflowX)) { left = box.left; right = box.right; }
+        if (/^(hidden|clip)$/.test(style.overflowY)) { top = box.top; bottom = box.bottom; }
+      }
+      const clip = style.clip.match(/^rect\((.*)\)$/);
+      if (clip && /^(absolute|fixed)$/.test(style.position)) {
+        const values = clip[1].split(/[,\s]+/).map(v => v === 'auto' ? null : parseFloat(v));
+        if (values.length === 4) {
+          top = Math.max(top, box.top + (values[0] ?? 0)); right = Math.min(right, box.left + (values[1] ?? box.width));
+          bottom = Math.min(bottom, box.top + (values[2] ?? box.height)); left = Math.max(left, box.left + (values[3] ?? 0));
+        }
+      }
+      const inset = style.clipPath.match(/^inset\(([^)]+)\)$/);
+      if (inset) {
+        const v = inset[1].split(' round ')[0].trim().split(/\s+/);
+        const lengths = [v[0],v[1]||v[0],v[2]||v[0],v[3]||v[1]||v[0]];
+        if (lengths.every(x => /^-?[\d.]+(?:px|%)?$/.test(x))) {
+          const n = lengths.map((x,i) => parseFloat(x) * (x.endsWith('%') ? (i%2 ? box.width : box.height)/100 : 1));
+          top = Math.max(top,box.top+n[0]); right = Math.min(right,box.right-n[1]);
+          bottom = Math.min(bottom,box.bottom-n[2]); left = Math.max(left,box.left+n[3]);
+        }
+      }
+      rects = rects.map(r => ({left:Math.max(r.left,left),right:Math.min(r.right,right),top:Math.max(r.top,top),bottom:Math.min(r.bottom,bottom)}))
+        .filter(r => r.right-r.left > 1 && r.bottom-r.top > 1);
+      if (!rects.length) return false;
+    }
+    // Negative document coordinates cannot be reached by normal page scrolling.
+    // Text below the viewport remains eligible and is followed during playback.
+    return rects.some(r => r.right + scrollX > 0 && r.bottom + scrollY > 0);
   }
 
   function tokenize(scope) {
     const words = [];
+    const styles = new WeakMap();
+    const styleOf = element => {
+      if (!styles.has(element)) styles.set(element, getComputedStyle(element));
+      return styles.get(element);
+    };
     const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT, {
       acceptNode(node) {
         const p = node.parentElement;
-        if (!p || !node.data.trim() || p.closest('script,style,noscript,template,textarea,input,select,button,[hidden],[inert],[aria-hidden="true"],[contenteditable]:not([contenteditable="false"]),[data-speed-reader]')) return NodeFilter.FILTER_REJECT;
-        if (p.closest('nav,aside,footer,[role="navigation"],[role="complementary"],[role="contentinfo"],.mw-editsection,.reference,.reflist')) return NodeFilter.FILTER_REJECT;
-        return p.getClientRects().length && getComputedStyle(p).visibility === 'visible'
-          ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+        return !p || !node.data.trim() || p.closest(excludedText) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
       }
     });
     let node;
     while ((node = walker.nextNode())) {
       for (const match of node.data.matchAll(/[\p{L}\p{M}\p{N}]+(?:['’‐-][\p{L}\p{M}\p{N}]+)*[.,!?;:…]*/gu)) {
+        const range = document.createRange(); range.setStart(node,match.index); range.setEnd(node,match.index+match[0].length);
+        if (!readableRange(range,styleOf)) continue;
         words.push({ text: match[0], node, start: match.index, end: match.index + match[0].length });
       }
     }
     return words;
+  }
+
+  function wordStillReadable(w) {
+    if (!w.node.isConnected || w.node.data.slice(w.start,w.end) !== w.text) return false;
+    const range = document.createRange(); range.setStart(w.node,w.start); range.setEnd(w.node,w.end);
+    return readableRange(range);
   }
 
   async function start() {
@@ -38,13 +101,15 @@
     const saved = await chrome.runtime.sendMessage({action:'reader-preferences'}).catch(() => ({}));
     if (id !== requestId) return;
     const preferences = { wpm: Math.max(100, Math.min(800, Number(saved?.wpm) || 300)), dark: saved?.dark === true, wordView: saved?.wordView === true, speechRate:Math.max(.5,Math.min(2,Number(saved?.speechRate)||1)) };
-    const words = range ? tokenize(readingRoot(range)) : [];
+    const scope = range ? readingRoot(range) : null;
+    const words = scope ? tokenize(scope) : [];
     let index = -1;
     if (range?.startContainer.isConnected) {
       const anchor = range.cloneRange();
       anchor.collapse(true);
       // The DOM position distinguishes repeated words and multiline selections.
       index = words.findIndex(w => anchor.comparePoint(w.node, w.end) === 1 && range.intersectsNode(w.node));
+      if (index < 0 && words.length && !scope.contains(range.startContainer) && anchor.comparePoint(words[0].node, words[0].start) === 1) index = 0;
     }
     // Avoid leaving a second, blue highlight on the original selection.
     const activeRange = selection?.rangeCount ? selection.getRangeAt(0) : null;
@@ -112,7 +177,7 @@
     const panel = el('section', root, 'panel'); panel.tabIndex = -1;
     panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-label', 'Speed Reader');
     panel.classList.toggle('dark', preferences.dark);
-    const header = el('div', panel, 'header'); el('span', header, 'title', 'Speed Reader');
+    const header = el('div', panel, 'header'); el('span', header, 'title', `Speed Reader ${chrome.runtime.getManifest().version}`);
     const actions = el('div', header, 'actions');
     const wordView = button(actions, 'Word view', 'Show floating word view', () => {
       preferences.wordView = !preferences.wordView;
@@ -199,6 +264,9 @@
         bytes+=size;chunkEnd++;
         if(chunkEnd-index>=12 && /[.!?…]$/.test(word))break;
       }
+      if (!words.slice(chunkStart,chunkEnd).every(wordStillReadable)) {
+        speechError('This page changed. Select visible text and start again.'); return;
+      }
       const id=crypto.randomUUID();utteranceId=id;speechNotice='Preparing voice…';render();
       chrome.runtime.sendMessage({action:'reader-speak',id,words:words.slice(chunkStart,chunkEnd).map(w=>w.text),rate:preferences.speechRate,lang:document.documentElement.lang||navigator.language}).then(result=>{
         if(utteranceId===id&&result?.error)speechError(result.error);
@@ -233,6 +301,10 @@
         status.textContent = 'This page changed. Select text and start again.'; return;
       }
       const range = document.createRange(); range.setStart(w.node, w.start); range.setEnd(w.node, w.end);
+      if (!readableRange(range)) {
+        highlight.hidden = true; paused = true; clearTimeout(timer); stopUtterance(); updatePlay();
+        status.textContent = 'This page changed. Select visible text and start again.'; return;
+      }
       // Follow the word itself: a paragraph can be much taller than the screen.
       if (follow === true && !paused) {
         for (let parent = w.node.parentElement; parent && parent !== document.body && parent !== document.documentElement; parent = parent.parentElement) {
@@ -278,7 +350,7 @@
     }
     function seek(target) { if (first >= 0) { stopUtterance(); index = target; finished = false; render(); schedule(); } }
     function close() {
-      closed = true; clearTimeout(timer);stopUtterance();chrome.runtime.onMessage.removeListener(onSpeech); events.abort();
+      closed = true; clearTimeout(timer);stopUtterance();visibilityObserver.disconnect();chrome.runtime.onMessage.removeListener(onSpeech); events.abort();
       const restore = document.activeElement === host; host.remove();
       if (restore && previousFocus?.isConnected) previousFocus.focus({ preventScroll:true });
       if (session?.host === host) session = null;
@@ -309,6 +381,17 @@
     }, options);
     window.addEventListener('scroll', positionHighlight, { ...options,capture:true,passive:true });
     window.addEventListener('resize', constrain, options);
+    const visibilityObserver = new MutationObserver(records => {
+      if (first < 0 || closed) return;
+      const activeWords = words.slice(index,utteranceId ? chunkEnd : index+1);
+      if (!records.some(r => activeWords.some(w => r.target.contains(w.node)))) return;
+      if (!activeWords.every(wordStillReadable)) {
+        paused = true; clearTimeout(timer); stopUtterance(); highlight.hidden = true; updatePlay();
+        status.textContent = 'This page changed. Select visible text and start again.';
+        speechNote.textContent = speechMode ? 'Speech stopped because the passage changed.' : '';
+      }
+    });
+    visibilityObserver.observe(document.documentElement,{attributes:true,subtree:true,attributeFilter:['style','class','hidden','aria-hidden','inert','open']});
     document.documentElement.append(host);
     if (first < 0) {
       display.style.display = 'none';

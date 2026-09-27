@@ -1,7 +1,7 @@
 {
   "name": "chrome-reader",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "private": true,
-  "scripts": { "test": "node tests/reader.cjs && node tests/reading-experience.cjs && node tests/speech.cjs", "check": "node --check reader.js && node --check background.js && node --check speech-background.js && node --check audio.js && node --check options.js" },
+  "scripts": { "test": "node tests/reader.cjs && node tests/reading-experience.cjs && node tests/visible-text.cjs && node tests/speech.cjs", "test:live": "node tests/wikipedia.cjs", "check": "node --check reader.js && node --check background.js && node --check speech-background.js && node --check audio.js && node --check options.js" },
   "devDependencies": { "playwright": "1.62.1" }
 }

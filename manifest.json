@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Speed Reader Highlighter",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "minimum_chrome_version": "116",
   "description": "Highlights words to aid in speed reading on any webpage.",
   "permissions": ["activeTab", "contextMenus", "storage", "tts", "offscreen"],
